@@ -10,7 +10,7 @@ pipeline {
         // Stage 1: Checkout from GitHub
         stage('Checkout') {
             steps {
-                git "${GIT_REPO}"
+                git branch: 'main', url: "${GIT_REPO}"  // Explicitly use 'main'
             }
         }
 
