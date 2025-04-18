@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-profile-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-profile-app
+  template:
+    metadata:
+      labels:
+        app: user-profile-app
+    spec:
+      containers:
+      - name: user-profile-app
+        image: your-dockerhub-username/user-profile-app:latest
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-profile-service
+spec:
+  selector:
+    app: user-profile-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: LoadBalancer

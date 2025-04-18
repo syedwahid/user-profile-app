@@ -1,0 +1,20 @@
+{
+  "name": "user-profile-app",
+  "version": "1.0.0",
+  "description": "Simple user profile application",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "mocha"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "mocha": "^9.2.2",
+    "supertest": "^6.3.4"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

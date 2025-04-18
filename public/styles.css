@@ -1,0 +1,39 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #1e88e5; /* Blue background */
+    color: white;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  
+  .profile-container {
+    text-align: center;
+  }
+  
+  .profile-card {
+    background-color: #1565c0; /* Darker blue card */
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    max-width: 400px;
+    margin: 20px auto;
+  }
+  
+  .profile-info {
+    text-align: left;
+    margin-top: 15px;
+  }
+  
+  h1 {
+    color: #bbdefb; /* Light blue text */
+  }
+  
+  h2 {
+    color: white;
+    border-bottom: 1px solid #64b5f6;
+    padding-bottom: 10px;
+  }

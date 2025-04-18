@@ -1,0 +1,21 @@
+---
+- name: Configure Server for Deployment
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Install kubectl
+      apt:
+        name: kubectl
+        state: present
+
+    - name: Ensure Kubernetes config exists
+      copy:
+        src: "~/.kube/config"
+        dest: "/root/.kube/config"
+        owner: root
+        mode: '0600'
