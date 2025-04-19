@@ -5,6 +5,7 @@ pipeline {
         DOCKER_IMAGE = "syedwahid/user-profile-app"
         GIT_REPO = "https://github.com/syedwahid/user-profile-app"
         CONTAINER_NAME = "user-profile-app"
+        TEST_PORT = "3001"  // Different port for tests
     }
 
     stages {
@@ -15,24 +16,31 @@ pipeline {
             }
         }
 
-        // Stage 2: Cleanup Docker Environment (NEW)
+        // Stage 2: Run Tests (MOVED BEFORE DOCKER)
+        stage('Test Phone Number') {
+            steps {
+                sh '''
+                # Use different port for tests
+                export PORT=${TEST_PORT}
+                npm install
+                npm test
+                '''
+            }
+        }
+
+        // Stage 3: Cleanup Docker
         stage('Clean Docker Environment') {
             steps {
                 sh '''
-                # Stop and remove the running container
                 docker stop ${CONTAINER_NAME} || true
                 docker rm ${CONTAINER_NAME} || true
-
-                # Remove all local images for this app
                 docker rmi -f $(docker images -q ${DOCKER_IMAGE}) || true
-                
-                # Clean up dangling images
                 docker image prune -f
                 '''
             }
         }
 
-        // Stage 3: Build Image
+        // Stage 4: Build Image
         stage('Build Docker Image') {
             steps {
                 sh '''
@@ -42,7 +50,7 @@ pipeline {
             }
         }
 
-        // Stage 4: Push to Docker Hub
+        // Stage 5: Push to Docker Hub
         stage('Push to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(
@@ -59,7 +67,7 @@ pipeline {
             }
         }
 
-        // Stage 5: Run Container
+        // Stage 6: Run Container (LAST STEP)
         stage('Run Docker Container') {
             steps {
                 sh '''
@@ -70,17 +78,6 @@ pipeline {
                 '''
             }
         }
-
-        // Stage 6: Test Telephone Validation
-        stage('Test Phone Number') {
-            steps {
-                sh '''
-                npm install
-                npm test
-                '''
-            }
-        }
-
     }
 
     triggers {

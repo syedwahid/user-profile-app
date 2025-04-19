@@ -1,8 +1,19 @@
 const assert = require('assert');
 const request = require('supertest');
-const app = require('../app');
+const { app, server } = require('../app');
 
 describe('User Profile API', () => {
+  before((done) => {
+    // Wait for server to start if needed
+    if (server.listening) return done();
+    server.on('listening', done);
+  });
+
+  after((done) => {
+    // Close server after tests
+    server.close(done);
+  });
+
   it('should return user data with valid phone number', (done) => {
     request(app)
       .get('/api/user')
@@ -10,11 +21,8 @@ describe('User Profile API', () => {
       .end((err, res) => {
         if (err) return done(err);
         
-        // Validate phone number is 10 digits
         assert.strictEqual(res.body.phone.length, 10, 'Phone number should be 10 digits');
         assert(/^\d+$/.test(res.body.phone), 'Phone number should contain only digits');
-        
-        // Validate other fields
         assert(res.body.name, 'Name should exist');
         assert(res.body.address, 'Address should exist');
         assert(res.body.email, 'Email should exist');
