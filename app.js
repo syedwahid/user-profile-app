@@ -11,7 +11,7 @@ const user = {
   name: "John Doe",
   address: "123 Main St, Anytown, USA",
   email: "john.doe@example.com",
-  phone: "1234567890"
+  phone: "123456789"
 };
 
 // API endpoint to get user data
