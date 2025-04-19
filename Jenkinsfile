@@ -15,17 +15,7 @@ pipeline {
             }
         }
 
-        // Stage 2: Test Telephone Validation
-       stage('Test Phone Number') {
-            steps {
-                sh '''
-                npm install
-                npm test
-                '''
-            }
-        }
-
-        // Stage 3: Cleanup Docker Environment (NEW)
+        // Stage 2: Cleanup Docker Environment (NEW)
         stage('Clean Docker Environment') {
             steps {
                 sh '''
@@ -42,7 +32,7 @@ pipeline {
             }
         }
 
-        // Stage 4: Build Image
+        // Stage 3: Build Image
         stage('Build Docker Image') {
             steps {
                 sh '''
@@ -52,7 +42,7 @@ pipeline {
             }
         }
 
-        // Stage 5: Push to Docker Hub
+        // Stage 4: Push to Docker Hub
         stage('Push to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(
@@ -69,7 +59,7 @@ pipeline {
             }
         }
 
-        // Stage 6: Run Container
+        // Stage 5: Run Container
         stage('Run Docker Container') {
             steps {
                 sh '''
@@ -77,6 +67,16 @@ pipeline {
                     --name ${CONTAINER_NAME} \
                     -p 3000:3000 \
                     ${DOCKER_IMAGE}:latest
+                '''
+            }
+        }
+
+        // Stage 6: Test Telephone Validation
+        stage('Test Phone Number') {
+            steps {
+                sh '''
+                npm install
+                npm test
                 '''
             }
         }
