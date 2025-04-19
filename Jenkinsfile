@@ -80,7 +80,7 @@ pipeline {
                 //    credentialsId: 'ansible-ssh-key'
               //  )
           //  }
-        }
+       // }
     }
 
     triggers {
