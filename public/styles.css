@@ -1,6 +1,7 @@
 body {
     font-family: Arial, sans-serif;
-    background-color: #1e88e5; /* Blue background */
+    /* background-color: #1e88e5; */ /* Blue background */
+    background-color: #ffff00;  /* Yellow background */
     color: white;
     margin: 0;
     padding: 0;
