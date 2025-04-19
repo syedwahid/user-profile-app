@@ -4,27 +4,35 @@ pipeline {
     environment {
         DOCKER_IMAGE = "syedwahid/user-profile-app"
         GIT_REPO = "https://github.com/syedwahid/user-profile-app"
+        CONTAINER_NAME = "user-profile-app"
     }
 
     stages {
-        // Stage 1: Checkout from GitHub
+        // Stage 1: Checkout
         stage('Checkout') {
             steps {
-                git branch: 'main', url: "${GIT_REPO}"  // Explicitly use 'main'
+                git branch: 'main', url: "${GIT_REPO}"
             }
         }
 
-        // Stage 2: Test Telephone Validation
-       // stage('Test Phone Number') {
-         //   steps {
-           //     sh '''
-            //    npm install
-             //   npm test
-             //   '''
-          //  }
-       // }
+        // Stage 2: Cleanup Docker Environment (NEW)
+        stage('Clean Docker Environment') {
+            steps {
+                sh '''
+                # Stop and remove the running container
+                docker stop ${CONTAINER_NAME} || true
+                docker rm ${CONTAINER_NAME} || true
 
-        // Stage 3: Build Docker Image
+                # Remove all local images for this app
+                docker rmi -f $(docker images -q ${DOCKER_IMAGE}) || true
+                
+                # Clean up dangling images
+                docker image prune -f
+                '''
+            }
+        }
+
+        // Stage 3: Build Image
         stage('Build Docker Image') {
             steps {
                 sh '''
@@ -37,7 +45,11 @@ pipeline {
         // Stage 4: Push to Docker Hub
         stage('Push to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
                     sh '''
                     docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
                     docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
@@ -47,25 +59,38 @@ pipeline {
             }
         }
 
-        // Stage 5: Ansible Configuration
-        stage('Ansible Config') {
+        // Stage 5: Run Container
+        stage('Run Docker Container') {
             steps {
-                ansiblePlaybook(
-                    playbook: 'ansible/deploy.yml',
-                    inventory: 'ansible/inventory.ini',
-                    credentialsId: 'ansible-ssh-key'
-                )
+                sh '''
+                docker run -d \
+                    --name ${CONTAINER_NAME} \
+                    -p 3000:3000 \
+                    ${DOCKER_IMAGE}:latest
+                '''
             }
+        }
+
+        // Stage 6: Ansible Config
+        //stage('Ansible Config') {
+         //   steps {
+           //     ansiblePlaybook(
+             //       playbook: 'ansible/deploy.yml',
+               //     inventory: 'ansible/inventory.ini',
+                //    credentialsId: 'ansible-ssh-key'
+              //  )
+          //  }
         }
     }
 
-    // Trigger on GitHub push
     triggers {
         pollSCM('* * * * *')
     }
 
-    // Post-build actions
     post {
+        always {
+            sh 'docker system df'  // Show disk usage (debug)
+        }
         success {
             slackSend message: "✅ Pipeline SUCCESS - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
         }
