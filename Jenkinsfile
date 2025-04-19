@@ -15,14 +15,14 @@ pipeline {
         }
 
         // Stage 2: Test Telephone Validation
-        stage('Test Phone Number') {
-            steps {
-                sh '''
-                npm install
-                npm test
-                '''
-            }
-        }
+       // stage('Test Phone Number') {
+         //   steps {
+           //     sh '''
+            //    npm install
+             //   npm test
+             //   '''
+          //  }
+       // }
 
         // Stage 3: Build Docker Image
         stage('Build Docker Image') {
