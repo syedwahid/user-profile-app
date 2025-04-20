@@ -4,8 +4,9 @@ pipeline {
     environment {
         DOCKER_IMAGE = "syedwahid/user-profile-app"
         GIT_REPO = "https://github.com/syedwahid/user-profile-app"
-        CONTAINER_NAME = "user-profile-app"
-        TEST_PORT = "3001"  // Different port for tests
+        K8S_CLUSTER_IP = "192.168.68.96"
+        TF_VAR_image_version = "${BUILD_NUMBER}"
+        TF_VAR_container_port = "3000"
     }
 
     stages {
@@ -16,42 +17,29 @@ pipeline {
             }
         }
 
-        // Stage 2: Run Tests (MOVED BEFORE DOCKER)
+        // Stage 2: Run Tests
         stage('Test Phone Number') {
             steps {
                 sh '''
-                # Use different port for tests
-                export PORT=${TEST_PORT}
+                export PORT=3001
                 npm install
                 npm test
                 '''
             }
         }
 
-        // Stage 3: Cleanup Docker
+        // Stage 3: Docker Cleanup
         stage('Clean Docker Environment') {
             steps {
                 sh '''
-                docker stop ${CONTAINER_NAME} || true
-                docker rm ${CONTAINER_NAME} || true
-                docker rmi -f $(docker images -q ${DOCKER_IMAGE}) || true
-                docker image prune -f
+                docker system prune -a -f
+                docker volume prune -f
                 '''
             }
         }
 
-        // Stage 4: Build Image
-        stage('Build Docker Image') {
-            steps {
-                sh '''
-                docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
-                docker tag ${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_IMAGE}:latest
-                '''
-            }
-        }
-
-        // Stage 5: Push to Docker Hub
-        stage('Push to Docker Hub') {
+        // Stage 4: Build & Push Image
+        stage('Build and Push Docker Image') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
@@ -59,6 +47,8 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
+                    docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
+                    docker tag ${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_IMAGE}:latest
                     docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
                     docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
                     docker push ${DOCKER_IMAGE}:latest
@@ -67,32 +57,32 @@ pipeline {
             }
         }
 
-        // Stage 6: Run Container (LAST STEP)
-        stage('Run Docker Container') {
+        // Stage 5: Terraform Deployment
+        stage('Terraform Kubernetes Deployment') {
             steps {
-                sh '''
-                docker run -d \
-                    --name ${CONTAINER_NAME} \
-                    -p 3000:3000 \
-                    ${DOCKER_IMAGE}:latest
-                '''
+                dir('terraform') {
+                    sh '''
+                    terraform init
+                    terraform validate
+                    terraform apply -auto-approve \
+                        -var="k8s_host=${K8S_CLUSTER_IP}" \
+                        -var="docker_image=${DOCKER_IMAGE}:${BUILD_NUMBER}"
+                    '''
+                }
             }
         }
     }
 
-    triggers {
-        pollSCM('* * * * *')
-    }
-
     post {
         always {
-            sh 'docker system df'  // Show disk usage (debug)
+            sh 'docker system df'
+            sh 'terraform -chdir=terraform output'
         }
         success {
-            slackSend message: "✅ Pipeline SUCCESS - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
+            slackSend message: "✅ Deployment SUCCESS - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
         }
         failure {
-            slackSend message: "❌ Pipeline FAILED - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
+            slackSend message: "❌ Deployment FAILED - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
         }
     }
 }
