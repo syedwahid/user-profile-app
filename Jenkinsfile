@@ -71,6 +71,8 @@ pipeline {
                 }
             }
         }
+    triggers {
+        pollSCM('* * * * *')
     }
 
     post {
