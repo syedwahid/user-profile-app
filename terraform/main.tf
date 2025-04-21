@@ -2,10 +2,11 @@ variable "k8s_host" {}
 variable "docker_image" {}
 
 provider "kubernetes" {
-  host                   = "https://${var.k8s_host}:6443"  # Use HTTPS + Port 6443
-  cluster_ca_certificate = file("~/.minikube/ca.ca.crt")  # Add CA cert
-  client_certificate     = file("~/.minikube/proxy-client-ca.cert")       # Client cert
-  client_key             = file("~/.minikube/proxy-client-ca.key")        # Client key
+  host = "https://${var.k8s_host}:8443"  # Ensure port 8443 is included
+
+  client_certificate     = file(pathexpand("~/.minikube/profiles/minikube/client.crt"))       # Client cert
+  client_key             = file(pathexpand("~/.minikube/profiles/minikube/client.key"))       # Client key
+  cluster_ca_certificate = file(pathexpand("~/.minikube/ca.crt"))                   # Add CA cert
 }
 
 resource "kubernetes_deployment" "app" {
