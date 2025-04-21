@@ -9,6 +9,11 @@ pipeline {
         TF_VAR_container_port = "3000"
     }
 
+    // Add SCM polling trigger
+    triggers {
+        pollSCM('* * * * *')  // Check for changes every minute
+    }
+
     stages {
         // Stage 1: Checkout
         stage('Checkout') {
@@ -71,7 +76,7 @@ pipeline {
                 }
             }
         }
-
+    }
 
     post {
         always {
