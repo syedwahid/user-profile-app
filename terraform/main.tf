@@ -4,9 +4,9 @@ variable "docker_image" {}
 provider "kubernetes" {
   host = "https://${var.k8s_host}:8443"  # Ensure port 8443 is included
 
-  client_certificate     = file("/home/syedwahid/.minikube/profiles/minikube/client.crt")      # Client cert
-  client_key             = file("/home/syedwahid/.minikube/profiles/minikube/client.key")       # Client key
-  cluster_ca_certificate = file("/home/syedwahid/.minikube/ca.crt")                 # Add CA cert
+  client_certificate     = "/home/syedwahid/.minikube/profiles/minikube/client.crt"
+  client_key             = "/home/syedwahid/.minikube/profiles/minikube/client.key"
+  cluster_ca_certificate = "/home/syedwahid/.minikube/ca.crt"
 }
 
 resource "kubernetes_deployment" "app" {
