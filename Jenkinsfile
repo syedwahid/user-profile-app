@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "syedwahid/user-profile-app"
         GIT_REPO = "https://github.com/syedwahid/user-profile-app"
-        K8S_CLUSTER_IP = "192.168.68.96"
+        K8S_CLUSTER_IP = "192.168.58.2"
         TF_VAR_image_version = "${BUILD_NUMBER}"
         TF_VAR_container_port = "3000"
     }
