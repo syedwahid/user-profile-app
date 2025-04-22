@@ -4,12 +4,12 @@ pipeline {
     environment {
         DOCKER_IMAGE = "syedwahid/user-profile-app"
         GIT_REPO = "https://github.com/syedwahid/user-profile-app"
-        K8S_CLUSTER_IP = "192.168.58.2"
-        TF_VAR_image_version = "${BUILD_NUMBER}"
-        TF_VAR_container_port = "3000"
+        REMOTE_SERVER = "192.168.58.2" // Update with your server IP
+        SSH_CREDENTIALS = "ssh-creds"            // Update with your Jenkins SSH credentials ID
+        CONTAINER_NAME = "user-profile-app"
+        APP_PORT = "3000"
     }
 
-    // Add SCM polling trigger
     triggers {
         pollSCM('* * * * *')  // Check for changes every minute
     }
@@ -62,17 +62,22 @@ pipeline {
             }
         }
 
-        // Stage 5: Terraform Deployment
-        stage('Terraform Kubernetes Deployment') {
+        // Stage 5: Deploy to Remote Server
+        stage('Deploy to Remote Server') {
             steps {
-                dir('terraform') {
-                    sh '''
-                    terraform init
-                    terraform validate
-                    terraform apply -auto-approve \
-                        -var="k8s_host=${K8S_CLUSTER_IP}" \
-                        -var="docker_image=${DOCKER_IMAGE}:${BUILD_NUMBER}"
-                    '''
+                sshagent([SSH_CREDENTIALS]) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no ubuntu@${REMOTE_SERVER} << EOF
+                    docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
+                    docker pull ${DOCKER_IMAGE}:latest
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
+                    docker run -d \\
+                        --name ${CONTAINER_NAME} \\
+                        -p ${APP_PORT}:${APP_PORT} \\
+                        ${DOCKER_IMAGE}:latest
+                    EOF
+                    """
                 }
             }
         }
@@ -81,7 +86,6 @@ pipeline {
     post {
         always {
             sh 'docker system df'
-            sh 'terraform -chdir=terraform output'
         }
         success {
             slackSend message: "✅ Deployment SUCCESS - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
