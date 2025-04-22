@@ -80,4 +80,19 @@ pipeline {
         }
     }
 
+    triggers {
+        pollSCM('* * * * *')
+    }
+
+    post {
+        always {
+            sh 'docker system df'  // Show disk usage (debug)
+        }
+        success {
+            slackSend message: "✅ Pipeline SUCCESS - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
+        }
+        failure {
+            slackSend message: "❌ Pipeline FAILED - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
+        }
+    }
 }
