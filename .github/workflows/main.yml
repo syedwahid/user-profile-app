@@ -29,7 +29,7 @@ jobs:
       with:
         context: .
         push: true
-        tags: gcr.io/dazzling-bruin-443616-h2/gha-demo:latest # Replace <GCP_PROJECT_ID> and <IMAGE_NAME>
+        tags: gcr.io/poised-elf-457622-f4/user-profile:latest # Replace <GCP_PROJECT_ID> and <IMAGE_NAME>
 
     # Step 5: SSH into GCP VM and deploy the container
     - name: Deploy to GCP VM
