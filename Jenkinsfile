@@ -4,8 +4,8 @@ pipeline {
     environment {
         DOCKER_IMAGE = "syedwahid/user-profile-app"
         GIT_REPO = "https://github.com/syedwahid/user-profile-app"
-        CONTAINER_NAME = "user-profile-app"
-        TEST_PORT = "3001"  // Different port for tests
+        K8S_NAMESPACE = "user-profile"
+        KUBECONFIG = "kubeconfig.yaml"  // Path to kubeconfig file
     }
 
     stages {
@@ -16,42 +16,29 @@ pipeline {
             }
         }
 
-        // Stage 2: Run Tests (MOVED BEFORE DOCKER)
+        // Stage 2: Run Tests
         stage('Test Phone Number') {
             steps {
                 sh '''
-                # Use different port for tests
-                export PORT=${TEST_PORT}
+                export PORT=3001
                 npm install
                 npm test
                 '''
             }
         }
 
-        // Stage 3: Cleanup Docker
+        // Stage 3: Clean Docker Environment
         stage('Clean Docker Environment') {
             steps {
                 sh '''
-                docker stop ${CONTAINER_NAME} || true
-                docker rm ${CONTAINER_NAME} || true
-                docker rmi -f $(docker images -q ${DOCKER_IMAGE}) || true
-                docker image prune -f
+                docker system prune -a -f
+                docker volume prune -f
                 '''
             }
         }
 
-        // Stage 4: Build Image
-        stage('Build Docker Image') {
-            steps {
-                sh '''
-                docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
-                docker tag ${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_IMAGE}:latest
-                '''
-            }
-        }
-
-        // Stage 5: Push to Docker Hub
-        stage('Push to Docker Hub') {
+        // Stage 4: Build & Push Image
+        stage('Build and Push Docker Image') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
@@ -59,6 +46,8 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
+                    docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
+                    docker tag ${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_IMAGE}:latest
                     docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
                     docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
                     docker push ${DOCKER_IMAGE}:latest
@@ -67,18 +56,38 @@ pipeline {
             }
         }
 
-        // Stage 6: Run Container (LAST STEP)
-        stage('Run Docker Container') {
+        // Stage 5: Kubernetes Deployment
+        stage('Deploy to Kubernetes') {
             steps {
-                sh '''
-                docker run -d \
-                    --name ${CONTAINER_NAME} \
-                    -p 3000:3000 \
-                    ${DOCKER_IMAGE}:latest
-                '''
+                withCredentials([kubeconfigFile(
+                    credentialsId: 'kubernetes-cluster-creds',
+                    variable: 'KUBECONFIG'
+                )]) {
+                    sh '''
+                    # Deploy Kubernetes manifests
+                    kubectl apply -f kubernetes/namespace.yaml
+                    kubectl apply -f kubernetes/deployment.yaml -n ${K8S_NAMESPACE}
+                    kubectl apply -f kubernetes/service.yaml -n ${K8S_NAMESPACE}
+                    
+                    # Update image version
+                    kubectl set image deployment/user-profile-app \
+                        user-profile-app=${DOCKER_IMAGE}:${BUILD_NUMBER} \
+                        -n ${K8S_NAMESPACE}
+                    
+                    # Verify rollout
+                    kubectl rollout status deployment/user-profile-app -n ${K8S_NAMESPACE}
+                    '''
+                }
             }
         }
     }
 
-    // ... rest of your pipeline ...
+    post {
+        success {
+            slackSend message: "✅ Deployment SUCCESS - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
+        }
+        failure {
+            slackSend message: "❌ Deployment FAILED - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
+        }
+    }
 }
