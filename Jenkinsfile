@@ -4,14 +4,8 @@ pipeline {
     environment {
         DOCKER_IMAGE = "syedwahid/user-profile-app"
         GIT_REPO = "https://github.com/syedwahid/user-profile-app"
-        REMOTE_SERVER = "192.168.58.2" // Update with your server IP
-        SSH_CREDENTIALS = "ssh-creds"            // Update with your Jenkins SSH credentials ID
         CONTAINER_NAME = "user-profile-app"
-        APP_PORT = "3000"
-    }
-
-    triggers {
-        pollSCM('* * * * *')  // Check for changes every minute
+        TEST_PORT = "3001"  // Different port for tests
     }
 
     stages {
@@ -22,29 +16,42 @@ pipeline {
             }
         }
 
-        // Stage 2: Run Tests
+        // Stage 2: Run Tests (MOVED BEFORE DOCKER)
         stage('Test Phone Number') {
             steps {
                 sh '''
-                export PORT=3001
+                # Use different port for tests
+                export PORT=${TEST_PORT}
                 npm install
                 npm test
                 '''
             }
         }
 
-        // Stage 3: Docker Cleanup
+        // Stage 3: Cleanup Docker
         stage('Clean Docker Environment') {
             steps {
                 sh '''
-                docker system prune -a -f
-                docker volume prune -f
+                docker stop ${CONTAINER_NAME} || true
+                docker rm ${CONTAINER_NAME} || true
+                docker rmi -f $(docker images -q ${DOCKER_IMAGE}) || true
+                docker image prune -f
                 '''
             }
         }
 
-        // Stage 4: Build & Push Image
-        stage('Build and Push Docker Image') {
+        // Stage 4: Build Image
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
+                docker tag ${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_IMAGE}:latest
+                '''
+            }
+        }
+
+        // Stage 5: Push to Docker Hub
+        stage('Push to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
@@ -52,8 +59,6 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
-                    docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
-                    docker tag ${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_IMAGE}:latest
                     docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
                     docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
                     docker push ${DOCKER_IMAGE}:latest
@@ -62,36 +67,18 @@ pipeline {
             }
         }
 
-        // Stage 5: Deploy to Remote Server
-        stage('Deploy to Remote Server') {
+        // Stage 6: Run Container (LAST STEP)
+        stage('Run Docker Container') {
             steps {
-                sshagent([SSH_CREDENTIALS]) {
-                    sh """
-                    ssh -o StrictHostKeyChecking=no ubuntu@${REMOTE_SERVER} << EOF
-                    docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-                    docker pull ${DOCKER_IMAGE}:latest
-                    docker stop ${CONTAINER_NAME} || true
-                    docker rm ${CONTAINER_NAME} || true
-                    docker run -d \\
-                        --name ${CONTAINER_NAME} \\
-                        -p ${APP_PORT}:${APP_PORT} \\
-                        ${DOCKER_IMAGE}:latest
-                    EOF
-                    """
-                }
+                sh '''
+                docker run -d \
+                    --name ${CONTAINER_NAME} \
+                    -p 3000:3000 \
+                    ${DOCKER_IMAGE}:latest
+                '''
             }
         }
     }
 
-    post {
-        always {
-            sh 'docker system df'
-        }
-        success {
-            slackSend message: "✅ Deployment SUCCESS - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
-        }
-        failure {
-            slackSend message: "❌ Deployment FAILED - ${env.JOB_NAME} ${env.BUILD_NUMBER}"
-        }
-    }
+    // ... rest of your pipeline ...
 }
