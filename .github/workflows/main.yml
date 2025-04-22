@@ -1,0 +1,43 @@
+name: Build,Push,Deploy to GCP VM
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Check out the code
+    - name: Check out the repo
+      uses: actions/checkout@v4
+
+    # Step 2: Authenticate with GCP
+    - name: Authenticate with GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+    # Step 3: Configure Docker for GCP
+    - name: Set up GCP Docker auth
+      run: gcloud auth configure-docker --quiet
+
+    # Step 4: Build and push Docker image to GCR
+    - name: Build and push Docker image to GCR
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: gcr.io/dazzling-bruin-443616-h2/gha-demo:latest # Replace <GCP_PROJECT_ID> and <IMAGE_NAME>
+
+    # Step 5: SSH into GCP VM and deploy the container
+    - name: Deploy to GCP VM
+      uses: appleboy/ssh-action@v0.1.6
+      with:
+        host: ${{ secrets.GCP_VM_IP }}
+        username: ${{ secrets.GCP_VM_USERNAME }}
+        key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+        script: |
+          docker pull gcr.io/dazzling-bruin-443616-h2/gha-demo:latest
+          docker run -d --name gha-demo -p 8888:8888 gcr.io/dazzling-bruin-443616-h2/gha-demo:latest
