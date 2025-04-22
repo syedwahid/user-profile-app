@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+        pollSCM('* * * * *')
+    }
+
     environment {
         DOCKER_IMAGE = "syedwahid/user-profile-app"
         GIT_REPO = "https://github.com/syedwahid/user-profile-app"
@@ -80,9 +84,6 @@ pipeline {
         }
     }
 
-    triggers {
-        pollSCM('* * * * *')
-    }
 
     post {
         always {
